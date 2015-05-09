@@ -21,6 +21,12 @@ class ViewController: UIViewController, CameraSessionDelegate {
     var stickerLayer : CALayer?
     var mustacheLayer: CALayer?
     let mustacheImage: UIImage? = UIImage(named: "mustache")
+    let plistName:String = "data.plist"
+    
+    // View for produce flash effect while capturing image
+    var flashView    : UIView?
+    
+    @IBOutlet weak var imgThumb: UIImageView!
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -63,6 +69,33 @@ class ViewController: UIViewController, CameraSessionDelegate {
         updateStickerPosition(sampleBuffer)
     }
     
+    func capturingImage() {
+        flashView = UIView(frame: previewView.frame)
+        flashView?.backgroundColor = UIColor.whiteColor()
+        flashView?.alpha = 0.0
+        if let flashViewUnwrap = flashView? {
+            self.view.window?.addSubview(flashViewUnwrap)
+        }
+        
+        UIView.animateWithDuration(0.4, animations: { [unowned self] ()-> Void in
+            self.flashView?.alpha = 1.0
+            return
+        })
+    }
+    
+    func capturedImage() {
+        UIView.animateWithDuration(0.4, animations: { [unowned self] () -> Void in
+            self.flashView?.alpha = 0.0
+            return
+            }, completion: { [unowned self] (finished:Bool) -> Void in
+                self.flashView?.removeFromSuperview()
+                self.flashView = nil
+                return
+        })
+    }
+    
+    
+    // MARK: STICKER CREATE
     func updateStickerPosition(sampleBuffer: CMSampleBuffer) {
         var pixelBuffer: CVImageBufferRef = CMSampleBufferGetImageBuffer(sampleBuffer)!
         var sourceImageColor: CIImage = CIImage(CVPixelBuffer: pixelBuffer)
@@ -158,6 +191,125 @@ class ViewController: UIViewController, CameraSessionDelegate {
         CATransaction.commit()
         
     }
-
+    
+    // MARK: CUSTOM IMAGE STICKER RENDER
+    
+    func renderFinalImage(capturedImage: UIImage, stickerLayer: CALayer?) -> UIImage? {
+        var flippedImage: UIImage!
+        if self.cameraSession.isFrontCamera == true {
+            flippedImage = UIImage(CGImage: capturedImage.CGImage, scale: capturedImage.scale, orientation: UIImageOrientation.LeftMirrored)!
+        } else {
+            flippedImage = capturedImage
+        }
+        
+        UIGraphicsBeginImageContext(capturedImage.size);
+        
+        flippedImage.drawAtPoint(CGPointZero, blendMode: kCGBlendModeNormal, alpha: 1.0)
+        if let stickerLayerUnwrap = stickerLayer { stickerLayerUnwrap.renderInContext(UIGraphicsGetCurrentContext()) }
+        
+        var outputImage = UIGraphicsGetImageFromCurrentImageContext();
+        
+        UIGraphicsEndImageContext();
+        
+        return outputImage;
+    }
+    
+    
+    // MARK: IBOUTLET ACTION
+    @IBAction func btnCameraTouch(sender: UIButton) {
+        if (cameraSession != nil) {
+            cameraSession.captureImage({ [unowned self] (image, error) -> Void in
+                // todo
+                var finalImage = self.renderFinalImage(image!, stickerLayer: self.stickerLayer)
+                UIImageWriteToSavedPhotosAlbum(finalImage, nil, nil, nil)
+                self.saveImageToApplicationFolder(finalImage!)
+                var image = self.loadLastImageFromApplicationFolder()
+                if let tmpImage = image? {
+                    self.imgThumb.image = tmpImage
+                }
+            })
+        }
+    }
+    
+    @IBAction func btnRotateCamTouch(sender: UIButton) {
+        if (cameraSession != nil) {
+            self.cameraSession.switchCamera()
+        }
+    }
+    
+    // MARK: SAVE/LOAD IMAGE TO APPLICATION FOLDER
+    
+    func saveImageToApplicationFolder(finalImage: UIImage) {
+        let today = NSDate()
+        let dateFormat = NSDateFormatter()
+        dateFormat.dateFormat = "MMddyyyy_HHmmssSS"
+        let dateString = dateFormat.stringFromDate(today)
+        let imageName = NSString(format: "%@-%@.png", "GoatCam", dateString)
+        println(imageName)
+        let destinationPath = FCFileManager.pathForDocumentsDirectoryWithPath("/" + imageName)
+        let data = UIImagePNGRepresentation(finalImage)
+        data.writeToFile(destinationPath, atomically: true)
+        saveFileList(imageName, creationDate: today)
+    }
+    
+    func removeImageFromApplicationFolder(imageName: String) {
+        let imagePath = FCFileManager.pathForDocumentsDirectoryWithPath("/" + imageName)
+        if (FCFileManager.existsItemAtPath(imagePath)) {
+            FCFileManager.removeFilesInDirectoryAtPath(imagePath)
+        }
+        var dataList:NSMutableArray?
+        var plistPath = FCFileManager.pathForDocumentsDirectoryWithPath(plistName)
+        if (!FCFileManager.existsItemAtPath(plistPath)) {
+            return
+        } else {
+            dataList = NSMutableArray(contentsOfFile: plistPath)
+        }
+        
+        let filter:NSPredicate = NSPredicate(format: "name != %@",imageName)!
+        if let tmpDataList = dataList? {
+            let filteredArray: NSArray = tmpDataList.filteredArrayUsingPredicate(filter) as NSArray
+            filteredArray.writeToFile(plistPath, atomically: true)
+        }
+        
+    }
+    
+    func saveFileList(fileName:String, creationDate:NSDate) {
+        var dataList:NSMutableArray?
+        var plistPath = FCFileManager.pathForDocumentsDirectoryWithPath(plistName)
+        if (!FCFileManager.existsItemAtPath(plistPath)) {
+            dataList = NSMutableArray()
+        } else {
+            dataList = NSMutableArray(contentsOfFile: plistPath)
+        }
+        var data = NSMutableDictionary()
+        data.setObject(fileName, forKey: "name")
+        data.setObject(creationDate, forKey: "time")
+        dataList?.addObject(data)
+        dataList?.writeToFile(plistPath, atomically: true)
+    }
+    
+    func loadLastImageFromApplicationFolder() -> UIImage? {
+        let plistPath = FCFileManager.pathForDocumentsDirectoryWithPath(plistName)
+        var dataList = NSMutableArray()
+        if (FCFileManager.existsItemAtPath(plistPath)) {
+            dataList = NSMutableArray(contentsOfFile: plistPath)!
+        } else {
+            return nil
+        }
+        if (dataList.count <= 0) {
+            return nil
+        }
+        
+        // sort array by creation date
+        var descriptor:NSSortDescriptor = NSSortDescriptor(key: "time", ascending: true)
+        var sortedList: NSArray = dataList.sortedArrayUsingDescriptors([descriptor])
+        
+        var imageInfo:NSDictionary = sortedList.objectAtIndex(sortedList.count - 1) as NSDictionary
+        var imageName:String = imageInfo.objectForKey("name") as String
+        let destinationPath = FCFileManager.pathForDocumentsDirectoryWithPath("/" + imageName)
+        var image = UIImage(contentsOfFile: destinationPath)
+        return image
+    }
+    
 }
 

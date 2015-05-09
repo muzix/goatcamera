@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="6221" systemVersion="13E28" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" initialViewController="BYZ-38-t0r">
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.Storyboard.XIB" version="3.0" toolsVersion="6221" systemVersion="13F34" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" initialViewController="BYZ-38-t0r">
     <dependencies>
         <deployment identifier="iOS"/>
         <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="6213"/>
@@ -38,8 +38,11 @@
                                 <state key="normal" image="rotate_camera">
                                     <color key="titleShadowColor" white="0.5" alpha="1" colorSpace="calibratedWhite"/>
                                 </state>
+                                <connections>
+                                    <action selector="btnRotateCamTouch:" destination="BYZ-38-t0r" eventType="touchUpInside" id="66l-Te-6ZR"/>
+                                </connections>
                             </button>
-                            <imageView opaque="NO" clipsSubviews="YES" multipleTouchEnabled="YES" contentMode="center" image="thumb_border" translatesAutoresizingMaskIntoConstraints="NO" id="Uvz-Ij-4V3">
+                            <imageView opaque="NO" clipsSubviews="YES" multipleTouchEnabled="YES" contentMode="scaleAspectFill" image="thumb_border" translatesAutoresizingMaskIntoConstraints="NO" id="Uvz-Ij-4V3">
                                 <rect key="frame" x="13" y="509" width="47" height="47"/>
                                 <constraints>
                                     <constraint firstAttribute="height" constant="47" id="3MO-fT-mSZ"/>
@@ -57,6 +60,9 @@
                                 </state>
                                 <state key="selected" backgroundImage="btn_camera_press"/>
                                 <state key="highlighted" backgroundImage="btn_camera_press"/>
+                                <connections>
+                                    <action selector="btnCameraTouch:" destination="BYZ-38-t0r" eventType="touchUpInside" id="lgW-64-v5F"/>
+                                </connections>
                             </button>
                             <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="kcr-o6-O0P">
                                 <rect key="frame" x="0.0" y="71" width="320" height="426"/>
@@ -86,6 +92,7 @@
                     <freeformSimulatedSizeMetrics key="simulatedDestinationMetrics"/>
                     <size key="freeformSize" width="320" height="568"/>
                     <connections>
+                        <outlet property="imgThumb" destination="Uvz-Ij-4V3" id="BaF-2h-E1Q"/>
                         <outlet property="previewView" destination="kcr-o6-O0P" id="8eI-lC-24h"/>
                     </connections>
                 </viewController>

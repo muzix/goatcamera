@@ -31,6 +31,8 @@ class CameraSession: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     
     var sessionDelegate: CameraSessionDelegate?
     
+    private var AVCaptureStillImageIsCapturingStillImageContext = 0
+    
     // MARK: LIFE CYCLE
     /* Lifecycle
     ------------------------------------------*/
@@ -61,7 +63,9 @@ class CameraSession: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         
     }
     
-    deinit {}
+    deinit {
+        self.stillImageOutput.removeObserver(self, forKeyPath: "capturingStillImage")
+    }
     
     // MARK: INSTANCE METHODS
     /* Instance Methods
@@ -106,8 +110,10 @@ class CameraSession: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     
     func removeVideoInput() -> Bool {
         let currentVideoInputs:NSArray = self.session.inputs as NSArray;
-        if (currentVideoInputs.count > 0) {
+        let count = currentVideoInputs.count
+        if (count > 0) {
             self.session.removeInput(currentVideoInputs[0] as AVCaptureInput)
+            self.videoDeviceInput = nil
         }
         return true
     }
@@ -133,12 +139,55 @@ class CameraSession: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         return success
     }
     
-    func removeVideoOutput() -> Bool {
-        let currentVideoOutputs:NSArray = self.session.outputs as NSArray;
-        if (currentVideoOutputs.count > 0) {
-            self.session.removeOutput(currentVideoOutputs[0] as AVCaptureOutput)
+    func addBackVideoInput() -> Bool {
+        removeVideoInput()
+        
+        var success: Bool = false
+        var error: NSError?
+        
+        var videoDevice: AVCaptureDevice = CameraSession.deviceWithMediaType(AVMediaTypeVideo, position: AVCaptureDevicePosition.Back)
+        
+        self.videoDeviceInput = AVCaptureDeviceInput.deviceInputWithDevice(videoDevice, error: &error) as AVCaptureDeviceInput;
+        if (error == nil) {
+            if self.session.canAddInput(self.videoDeviceInput) {
+                self.session.addInput(self.videoDeviceInput)
+                success = true
+                isFrontCamera = false
+            }
+            
+            // change framerate
+            //            var maxFramerate = 0
+            //            for vFormat in videoDevice.formats {
+            //                let description:CMFormatDescriptionRef = vFormat.formatDescription
+            //                let frameRateRanges:NSArray = vFormat.videoSupportedFrameRateRanges as NSArray
+            //                let frameRateRange:AVFrameRateRange = frameRateRanges[0] as AVFrameRateRange
+            //                var maxrate:Int = Int(frameRateRange.maxFrameRate)
+            //                if maxrate >= maxFramerate {
+            //                    if UInt32(CMFormatDescriptionGetMediaSubType(description)) == UInt32(kCVPixelFormatType_420YpCbCr8BiPlanarFullRange) {
+            //                        maxFramerate = maxrate
+            //                        videoDevice.lockForConfiguration(nil)
+            //                        videoDevice.activeFormat = vFormat as AVCaptureDeviceFormat
+            //                        videoDevice.activeVideoMinFrameDuration = CMTimeMake(1,Int32(30))
+            //                        videoDevice.activeVideoMaxFrameDuration = CMTimeMake(1,Int32(30))
+            //                        videoDevice.unlockForConfiguration()
+            //                    }
+            //                }
+            //            }
         }
         
+        return success
+    }
+    
+    func removeVideoOutput() -> Bool {
+        if self.videoDeviceOutput != nil {
+            self.session.removeOutput(self.videoDeviceOutput)
+            self.videoDeviceOutput = nil
+        }
+        if self.stillImageOutput != nil {
+            self.stillImageOutput.removeObserver(self, forKeyPath: "capturingStillImage")
+            self.session.removeOutput(self.stillImageOutput)
+            self.stillImageOutput = nil
+        }
         return true
     }
     
@@ -168,6 +217,7 @@ class CameraSession: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     func addStillImageOutput() {
         self.stillImageOutput = AVCaptureStillImageOutput()
         self.stillImageOutput.outputSettings = [AVVideoCodecKey: AVVideoCodecJPEG]
+        self.stillImageOutput.addObserver(self, forKeyPath: "capturingStillImage", options: NSKeyValueObservingOptions.New, context:&AVCaptureStillImageIsCapturingStillImageContext)
         
         if self.session.canAddOutput(self.stillImageOutput) {
             self.session.addOutput(self.stillImageOutput)
@@ -189,8 +239,71 @@ class CameraSession: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     func teardownCamera() {
         dispatch_async(self.sessionQueue, {
             self.session.stopRunning()
+            self.stillImageOutput.removeObserver(self, forKeyPath: "capturingStillImage")
             NSNotificationCenter.defaultCenter().removeObserver(self.runtimeErrorHandlingObserver!)
         })
+    }
+    
+    func switchCamera() {
+        self.sessionQueue = dispatch_queue_create("CameraSessionController Session", DISPATCH_QUEUE_SERIAL)
+        dispatch_async(self.sessionQueue, {
+            self.session.beginConfiguration()
+            if (self.isFrontCamera == true) {
+                self.addBackVideoInput()
+            } else {
+                self.addFrontVideoInput()
+            }
+            self.removeVideoOutput()
+            self.addVideoOutput()
+            self.addStillImageOutput()
+            self.session.commitConfiguration()
+        })
+    }
+    
+    func captureImage(completion:((image: UIImage?, error: NSError?) -> Void)?) {
+        if completion == nil || self.stillImageOutput == nil{
+            return
+        }
+        
+        dispatch_async(dispatch_get_global_queue( DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), {
+            NSLog("Connections %d", self.stillImageOutput.connections.count)
+            self.stillImageOutput.captureStillImageAsynchronouslyFromConnection(self.stillImageOutput.connectionWithMediaType(AVMediaTypeVideo), completionHandler: {
+                (imageDataSampleBuffer: CMSampleBuffer?, error: NSError?) -> Void in
+                if imageDataSampleBuffer == nil || error != nil {
+                    completion!(image:nil, error:nil)
+                }
+                else if imageDataSampleBuffer != nil {
+                    var imageData: NSData = AVCaptureStillImageOutput.jpegStillImageNSDataRepresentation(imageDataSampleBuffer?)
+                    var image: UIImage = UIImage(data: imageData)!
+                    completion!(image:image, error:nil)
+                }
+            })
+        })
+    }
+    
+    // MARK: KVO
+    override func observeValueForKeyPath(keyPath: String, ofObject object: AnyObject, change: [NSObject : AnyObject], context: UnsafeMutablePointer<Void>) {
+        switch (keyPath, context) {
+        case("capturingStillImage", &AVCaptureStillImageIsCapturingStillImageContext):
+            println("isCapturingImage!")
+            if let theChange = change as? [NSString: Bool]{
+                if let isCapturingStillImage = theChange[NSKeyValueChangeNewKey]{
+                    if (isCapturingStillImage) {
+                        println("FLASH LIGHT!")
+                        self.sessionDelegate?.capturingImage?()
+                    } else {
+                        println("FLASH OFF!")
+                        self.sessionDelegate?.capturedImage?()
+                    }
+                    
+                }
+            }
+        case(_, &AVCaptureStillImageIsCapturingStillImageContext):
+            assert(false, "unknown key path")
+            
+        default:
+            super.observeValueForKeyPath(keyPath, ofObject: object, change: change, context: context)
+        }
     }
     
 }
