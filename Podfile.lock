@@ -41,9 +41,9 @@ CHECKOUT OPTIONS:
     :git: https://github.com/muzix/FSImageViewer.git
 
 SPEC CHECKSUMS:
-  AFNetworking: 8bee59492a6ff15d69130efa4d0dc67e0094a52a
-  EGOCache: bf414333c425fe47f5182351d1dd47ebf72d8352
-  FCFileManager: 5c46704afcc14dd7616e8b8b9c2ba79b14f7f800
+  AFNetworking: 10e85a00bb0f475124e4ff2677bf15693b2c1523
+  EGOCache: d20ba0673fd747c15a3b73a9218d844350b156ba
+  FCFileManager: fd77211e8448b0e9713d51d4f75769d9dc4ceb58
   FSImageViewer: b8dafe340d43c72548a694c0e3ac1daec68e82ad
 
-COCOAPODS: 0.36.0.beta.2
+COCOAPODS: 0.36.0

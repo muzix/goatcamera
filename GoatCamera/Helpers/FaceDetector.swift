@@ -34,6 +34,6 @@ class FaceDetector {
                 CIDetectorSmile: false
             ])
         
-        return features as [CIFaceFeature]
+        return features as! [CIFaceFeature]
     }
 }

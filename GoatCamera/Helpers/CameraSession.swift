@@ -94,11 +94,11 @@ class CameraSession: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     }
     
     class func deviceWithMediaType(mediaType: NSString, position: AVCaptureDevicePosition) -> AVCaptureDevice {
-        var devices: NSArray = AVCaptureDevice.devicesWithMediaType(mediaType)
-        var captureDevice: AVCaptureDevice = devices.firstObject as AVCaptureDevice
+        var devices: NSArray = AVCaptureDevice.devicesWithMediaType(mediaType as String)
+        var captureDevice: AVCaptureDevice = devices.firstObject as! AVCaptureDevice
         
         for object:AnyObject in devices {
-            let device = object as AVCaptureDevice
+            let device = object as! AVCaptureDevice
             if (device.position == position) {
                 captureDevice = device
                 break
@@ -112,7 +112,7 @@ class CameraSession: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         let currentVideoInputs:NSArray = self.session.inputs as NSArray;
         let count = currentVideoInputs.count
         if (count > 0) {
-            self.session.removeInput(currentVideoInputs[0] as AVCaptureInput)
+            self.session.removeInput(currentVideoInputs[0] as! AVCaptureInput)
             self.videoDeviceInput = nil
         }
         return true
@@ -127,7 +127,7 @@ class CameraSession: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         
         var videoDevice: AVCaptureDevice = CameraSession.deviceWithMediaType(AVMediaTypeVideo, position: AVCaptureDevicePosition.Front)
         
-        self.videoDeviceInput = AVCaptureDeviceInput.deviceInputWithDevice(videoDevice, error: &error) as AVCaptureDeviceInput;
+        self.videoDeviceInput = AVCaptureDeviceInput.deviceInputWithDevice(videoDevice, error: &error) as! AVCaptureDeviceInput;
         if (error == nil) {
             if self.session.canAddInput(self.videoDeviceInput) {
                 self.session.addInput(self.videoDeviceInput)
@@ -147,7 +147,7 @@ class CameraSession: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
         
         var videoDevice: AVCaptureDevice = CameraSession.deviceWithMediaType(AVMediaTypeVideo, position: AVCaptureDevicePosition.Back)
         
-        self.videoDeviceInput = AVCaptureDeviceInput.deviceInputWithDevice(videoDevice, error: &error) as AVCaptureDeviceInput;
+        self.videoDeviceInput = AVCaptureDeviceInput.deviceInputWithDevice(videoDevice, error: &error) as! AVCaptureDeviceInput;
         if (error == nil) {
             if self.session.canAddInput(self.videoDeviceInput) {
                 self.session.addInput(self.videoDeviceInput)
@@ -273,7 +273,7 @@ class CameraSession: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
                     completion!(image:nil, error:nil)
                 }
                 else if imageDataSampleBuffer != nil {
-                    var imageData: NSData = AVCaptureStillImageOutput.jpegStillImageNSDataRepresentation(imageDataSampleBuffer?)
+                    var imageData: NSData = AVCaptureStillImageOutput.jpegStillImageNSDataRepresentation(imageDataSampleBuffer)
                     var image: UIImage = UIImage(data: imageData)!
                     completion!(image:image, error:nil)
                 }

@@ -73,7 +73,7 @@ class ViewController: UIViewController, CameraSessionDelegate {
         flashView = UIView(frame: previewView.frame)
         flashView?.backgroundColor = UIColor.whiteColor()
         flashView?.alpha = 0.0
-        if let flashViewUnwrap = flashView? {
+        if let flashViewUnwrap = flashView {
             self.view.window?.addSubview(flashViewUnwrap)
         }
         
@@ -224,7 +224,7 @@ class ViewController: UIViewController, CameraSessionDelegate {
                 UIImageWriteToSavedPhotosAlbum(finalImage, nil, nil, nil)
                 self.saveImageToApplicationFolder(finalImage!)
                 var image = self.loadLastImageFromApplicationFolder()
-                if let tmpImage = image? {
+                if let tmpImage = image {
                     self.imgThumb.image = tmpImage
                 }
             })
@@ -246,10 +246,10 @@ class ViewController: UIViewController, CameraSessionDelegate {
         let dateString = dateFormat.stringFromDate(today)
         let imageName = NSString(format: "%@-%@.png", "GoatCam", dateString)
         println(imageName)
-        let destinationPath = FCFileManager.pathForDocumentsDirectoryWithPath("/" + imageName)
+        let destinationPath = FCFileManager.pathForDocumentsDirectoryWithPath("/" + (imageName as String))
         let data = UIImagePNGRepresentation(finalImage)
         data.writeToFile(destinationPath, atomically: true)
-        saveFileList(imageName, creationDate: today)
+        saveFileList(imageName as String, creationDate: today)
     }
     
     func removeImageFromApplicationFolder(imageName: String) {
@@ -265,8 +265,8 @@ class ViewController: UIViewController, CameraSessionDelegate {
             dataList = NSMutableArray(contentsOfFile: plistPath)
         }
         
-        let filter:NSPredicate = NSPredicate(format: "name != %@",imageName)!
-        if let tmpDataList = dataList? {
+        let filter:NSPredicate = NSPredicate(format: "name != %@",imageName)
+        if let tmpDataList = dataList {
             let filteredArray: NSArray = tmpDataList.filteredArrayUsingPredicate(filter) as NSArray
             filteredArray.writeToFile(plistPath, atomically: true)
         }
@@ -304,8 +304,8 @@ class ViewController: UIViewController, CameraSessionDelegate {
         var descriptor:NSSortDescriptor = NSSortDescriptor(key: "time", ascending: true)
         var sortedList: NSArray = dataList.sortedArrayUsingDescriptors([descriptor])
         
-        var imageInfo:NSDictionary = sortedList.objectAtIndex(sortedList.count - 1) as NSDictionary
-        var imageName:String = imageInfo.objectForKey("name") as String
+        var imageInfo:NSDictionary = sortedList.objectAtIndex(sortedList.count - 1) as! NSDictionary
+        var imageName:String = imageInfo.objectForKey("name") as! String
         let destinationPath = FCFileManager.pathForDocumentsDirectoryWithPath("/" + imageName)
         var image = UIImage(contentsOfFile: destinationPath)
         return image
