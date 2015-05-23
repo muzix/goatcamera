@@ -57,7 +57,25 @@ class ViewController: UIViewController, CameraSessionDelegate {
         cameraSession.startCamera()
     }
     
+    var methodCount:Int = 0
+    var startTime:NSDate = NSDate()
     func cameraSessionDidOutputSampleBuffer(sampleBuffer: CMSampleBuffer!, fromConnection connection: AVCaptureConnection!) {
+        
+                dispatch_async(dispatch_get_main_queue(), { [unowned self] () -> Void in
+                    if (self.methodCount == 0) {
+                        self.startTime = NSDate()
+                    }
+                    self.methodCount = self.methodCount + 1
+                    let endTime = NSDate()
+                    var executeTime:NSTimeInterval = endTime.timeIntervalSinceDate(self.startTime)
+                    
+                    if (executeTime * 1000 > 1000) {
+                        var lblString = String(format: "%d", self.methodCount)
+                        NSLog("Framerate %@", lblString)
+                        self.methodCount = 0
+                    }
+                })
+        
         if (connection.supportsVideoOrientation) {
             connection.videoOrientation = AVCaptureVideoOrientation.Portrait
         }
@@ -98,15 +116,42 @@ class ViewController: UIViewController, CameraSessionDelegate {
     // MARK: STICKER CREATE
     func updateStickerPosition(sampleBuffer: CMSampleBuffer) {
         var pixelBuffer: CVImageBufferRef = CMSampleBufferGetImageBuffer(sampleBuffer)!
-        var sourceImageColor: CIImage = CIImage(CVPixelBuffer: pixelBuffer)
         
-        var width = sourceImageColor.extent().size.width
-        var height = sourceImageColor.extent().size.height
-       
+        // var sourceImageColor: CIImage = CIImage(CVPixelBuffer: pixelBuffer)
+        // var width = sourceImageColor.extent().size.width
+        // var height = sourceImageColor.extent().size.height
+        
+        // experimental
+        // downscale image using ImageIO for faster processing (http://nshipster.com/image-resizing/)
+        CVPixelBufferLockBaseAddress(pixelBuffer, 0)
+        var yPlaneAddress = CVPixelBufferGetBaseAddressOfPlane(pixelBuffer, 0)
+        var bytesPerRow = CVPixelBufferGetBytesPerRowOfPlane(pixelBuffer, 0)
+        var width = CVPixelBufferGetWidthOfPlane(pixelBuffer, 0)
+        var height = CVPixelBufferGetHeightOfPlane(pixelBuffer, 0)
+        
+        var colorSpace = CGColorSpaceCreateDeviceGray()
+        let bitmapInfo = CGBitmapInfo(CGImageAlphaInfo.None.rawValue)
+        var dataProvider = CGDataProviderCreateWithData(nil, yPlaneAddress, height * bytesPerRow, nil)
+        var newImageRef = CGImageCreate(width, height, 8, 8, bytesPerRow, colorSpace, bitmapInfo, dataProvider, nil, false, kCGRenderingIntentDefault)
+        
+        var scaleRatio:Double = 100.0 / Double(width);
+        var finalWidth:Int = 100
+        var finalHeight:Int = Int(Double(height) * scaleRatio)
+        let imageData = UnsafeMutablePointer<GLubyte>(calloc(Int(Double(finalWidth) * Double(finalHeight) * 4), Int(sizeof(GLubyte))))
+        let imageContext:CGContextRef = CGBitmapContextCreate(imageData, Int(finalWidth), Int(finalHeight), 8, Int(finalWidth * 4), colorSpace,  bitmapInfo);
+        CGContextDrawImage(imageContext, CGRectMake(0.0, 0.0, CGFloat(finalWidth), CGFloat(finalHeight)), newImageRef);
+
+        let scaledImage = CGBitmapContextCreateImage(imageContext)
+        free(imageData)
+        CVPixelBufferUnlockBaseAddress(pixelBuffer, 0)
+
+        
+        
         // Size of detection Image
         var cleanAperture:CGRect = CGRectMake(0, 0, CGFloat(width), CGFloat(height))
         
-        let faceFeatures = FaceDetector.detectFaces(inImage: sourceImageColor)
+        // let faceFeatures = FaceDetector.detectFaces(inImage: sourceImageColor)
+        let faceFeatures = FaceDetector.detectFaces(inImage: CIImage(CGImage:newImageRef))
         
         dispatch_async(dispatch_get_main_queue(), { [unowned self] () -> Void in
             self.drawStickers(faceFeatures, clearAperture: cleanAperture, orientation: UIDeviceOrientation.Portrait)

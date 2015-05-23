@@ -136,6 +136,26 @@ class CameraSession: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
             }
         }
         
+        // change framerate
+        var maxFramerate = 0
+        for vFormat in videoDevice.formats {
+            let description:CMFormatDescriptionRef = vFormat.formatDescription
+            let frameRateRanges:NSArray = vFormat.videoSupportedFrameRateRanges as NSArray
+            let frameRateRange:AVFrameRateRange = frameRateRanges[0] as! AVFrameRateRange
+            var maxrate:Int = Int(frameRateRange.maxFrameRate)
+            if maxrate >= maxFramerate {
+                
+                maxFramerate = maxrate
+                videoDevice.lockForConfiguration(nil)
+                videoDevice.activeFormat = vFormat as! AVCaptureDeviceFormat
+                videoDevice.activeVideoMinFrameDuration = CMTimeMake(1,Int32(maxFramerate))
+                videoDevice.activeVideoMaxFrameDuration = CMTimeMake(1,Int32(maxFramerate))
+                videoDevice.unlockForConfiguration()
+                
+            }
+        }
+        NSLog("Max framerate: %d", maxFramerate)
+        
         return success
     }
     
@@ -156,23 +176,24 @@ class CameraSession: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
             }
             
             // change framerate
-            //            var maxFramerate = 0
-            //            for vFormat in videoDevice.formats {
-            //                let description:CMFormatDescriptionRef = vFormat.formatDescription
-            //                let frameRateRanges:NSArray = vFormat.videoSupportedFrameRateRanges as NSArray
-            //                let frameRateRange:AVFrameRateRange = frameRateRanges[0] as AVFrameRateRange
-            //                var maxrate:Int = Int(frameRateRange.maxFrameRate)
-            //                if maxrate >= maxFramerate {
-            //                    if UInt32(CMFormatDescriptionGetMediaSubType(description)) == UInt32(kCVPixelFormatType_420YpCbCr8BiPlanarFullRange) {
-            //                        maxFramerate = maxrate
-            //                        videoDevice.lockForConfiguration(nil)
-            //                        videoDevice.activeFormat = vFormat as AVCaptureDeviceFormat
-            //                        videoDevice.activeVideoMinFrameDuration = CMTimeMake(1,Int32(30))
-            //                        videoDevice.activeVideoMaxFrameDuration = CMTimeMake(1,Int32(30))
-            //                        videoDevice.unlockForConfiguration()
-            //                    }
-            //                }
-            //            }
+                        var maxFramerate = 0
+                        for vFormat in videoDevice.formats {
+                            let description:CMFormatDescriptionRef = vFormat.formatDescription
+                            let frameRateRanges:NSArray = vFormat.videoSupportedFrameRateRanges as NSArray
+                            let frameRateRange:AVFrameRateRange = frameRateRanges[0] as! AVFrameRateRange
+                            var maxrate:Int = Int(frameRateRange.maxFrameRate)
+                            if maxrate >= maxFramerate {
+                                
+                                    maxFramerate = maxrate
+                                    videoDevice.lockForConfiguration(nil)
+                                    videoDevice.activeFormat = vFormat as! AVCaptureDeviceFormat
+                                    videoDevice.activeVideoMinFrameDuration = CMTimeMake(1,Int32(maxFramerate))
+                                    videoDevice.activeVideoMaxFrameDuration = CMTimeMake(1,Int32(maxFramerate))
+                                    videoDevice.unlockForConfiguration()
+                                
+                            }
+                        }
+                        NSLog("Max framerate: %d", maxFramerate)
         }
         
         return success
@@ -194,8 +215,8 @@ class CameraSession: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     // Setup capture output for our video device input.
     func addVideoOutput() {
         var settings: [String: Int] = [
-            kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
-            //kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_420YpCbCr8BiPlanarFullRange,
+            //kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
+            kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_420YpCbCr8BiPlanarFullRange,
         ]
         
         self.videoDeviceOutput = AVCaptureVideoDataOutput()
@@ -265,7 +286,8 @@ class CameraSession: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
             return
         }
         
-        dispatch_async(dispatch_get_global_queue( DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), {
+        //dispatch_async(dispatch_get_global_queue( DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), {
+        dispatch_async(self.sessionQueue, {
             NSLog("Connections %d", self.stillImageOutput.connections.count)
             self.stillImageOutput.captureStillImageAsynchronouslyFromConnection(self.stillImageOutput.connectionWithMediaType(AVMediaTypeVideo), completionHandler: {
                 (imageDataSampleBuffer: CMSampleBuffer?, error: NSError?) -> Void in
